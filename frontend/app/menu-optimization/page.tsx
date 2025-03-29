@@ -18,6 +18,7 @@ import {
   Loader2,
 } from "lucide-react";
 import { Navbar } from "@/components/navbar";
+import { DishPage } from "./DishPage";
 
 type MenuItem = {
   name: string;
@@ -38,29 +39,46 @@ type OptimizationResult = {
   new_dishes: MenuItem[];
 };
 
+interface Dish {
+  name: string;
+  photo: string;
+  price: number;
+  ingredients: string[];
+}
+
 export default function MenuOptimizationPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [activePage, setActivePage] = useState("menu-optimization");
   const [results, setResults] = useState<OptimizationResult | null>(null);
+  const [dishes, setDishes] = useState<Dish[]>([]);
+
+  const handleAddDish = (dish: Dish) => {
+    setDishes([...dishes, dish]);
+  };
 
   const handleOptimize = useCallback(async () => {
     setLoading(true);
     setError("");
 
     try {
-      const response = await axios.post("http://localhost:5001/optimize-menu");
+      const response = await axios.post("http://localhost:5001/optimize-menu", {
+        dishes: dishes,
+      });
       setResults(response.data);
     } catch (error: any) {
       setError(
         error.response?.data?.message ||
           "Failed to optimize menu. Please try again."
       );
-      console.error("Error optimizing menu:", error.response?.data || error.message);
+      console.error(
+        "Error optimizing menu:",
+        error.response?.data || error.message
+      );
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [dishes]);
 
   return (
     <div className="min-h-screen bg-black text-gray-200">
@@ -76,11 +94,15 @@ export default function MenuOptimizationPage() {
           </p>
         </div>
 
-        <div className="mb-8">
+        {/* Dish Creation and Current Menu */}
+        <DishPage onAddDish={handleAddDish} dishes={dishes} />
+
+        {/* Optimize Button */}
+        <div className="flex justify-center my-8">
           <Button
             onClick={handleOptimize}
-            disabled={loading}
-            className="bg-purple-600 hover:bg-purple-700"
+            disabled={loading || dishes.length === 0}
+            className="bg-purple-600 hover:bg-purple-700 min-w-[200px]"
           >
             {loading ? (
               <div className="flex items-center space-x-2">
@@ -182,7 +204,9 @@ export default function MenuOptimizationPage() {
                           </span>
                         </div>
                         <div>
-                          <span className="text-gray-400">Potential Savings:</span>
+                          <span className="text-gray-400">
+                            Potential Savings:
+                          </span>
                           <span className="ml-2 text-green-400">
                             ${item.potential_savings.toFixed(2)}
                           </span>
@@ -242,4 +266,4 @@ export default function MenuOptimizationPage() {
       </div>
     </div>
   );
-} 
+}

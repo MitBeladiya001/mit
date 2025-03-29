@@ -1,15 +1,11 @@
 bun.lock
 a.xlsx
-package.json
 node_modules
-package-lock.json
 /backend/.env
 /backend/__pycache__
 /backend/uploads
 /frontend/.next
 /frontend/node_modules
-/frontend/package-lock.json
-/frontend/package.json
 /frontend/README.md
 /frontend/yarn-error.log
 /frontend/yarn.lock

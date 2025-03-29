@@ -6,6 +6,7 @@ import logging
 import os
 from werkzeug.utils import secure_filename
 from menu_optimization import optimize_menu
+from ingredients import analyze_image_endpoint
 
 app = Flask(__name__)
 # Configure CORS to allow all origins
@@ -89,6 +90,10 @@ def optimize_menu_endpoint():
     except Exception as e:
         logger.error(f"Error in optimize_menu: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
+@app.route('/analyze-image', methods=['POST'])
+def analyze_image():
+    return analyze_image_endpoint()
 
 if __name__ == "__main__":
     app.run(debug=True, port=5001, host='0.0.0.0')
