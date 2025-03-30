@@ -23,11 +23,11 @@ ai_dish_bp = Blueprint('ai_dish', __name__)
 def get_surplus_ingredients():
     """Get current surplus ingredients from inventory"""
     return [
-        {"name": "Chicken Breast", "quantity": 15, "expiry_date": "2025-03-31"},  # Updated expiry
-        {"name": "Fresh Basil", "quantity": 8, "expiry_date": "2025-03-30"},    # Updated expiry
-        {"name": "Mozzarella", "quantity": 12, "expiry_date": "2025-04-01"},   # Updated expiry
-        {"name": "Tomatoes", "quantity": 20, "expiry_date": "2025-03-29"},     # Updated expiry
-        {"name": "Pasta", "quantity": 10, "expiry_date": "2025-04-06"},       # Updated expiry
+        {"name": "Chicken Breast", "quantity": 15, "expiry_date": "2025-03-31"},
+        {"name": "Fresh Basil", "quantity": 8, "expiry_date": "2025-03-30"},
+        {"name": "Mozzarella", "quantity": 12, "expiry_date": "2025-04-01"},
+        {"name": "Tomatoes", "quantity": 20, "expiry_date": "2025-03-29"},
+        {"name": "Pasta", "quantity": 10, "expiry_date": "2025-04-06"},
     ]
 
 def generate_ai_response(prompt):

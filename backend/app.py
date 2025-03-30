@@ -12,11 +12,17 @@ from menu import create_menu, get_all_menus, get_menu, update_menu, delete_menu
 import json
 from pymongo import MongoClient
 import uuid
-from ai_dish import ai_dish_bp, generate_dishes_func
+from ai_dish import ai_dish_bp, get_surplus_ingredients, generate_ai_response
 
 app = Flask(__name__)
-# Configure CORS to allow all origins
-CORS(app, resources={r"/*": {"origins": "*"}})
+# Configure CORS to allow all origins and methods
+CORS(app, resources={
+    r"/*": {
+        "origins": "*",
+        "methods": ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+        "allow_headers": ["Content-Type", "Authorization"]
+    }
+})
 
 # Set up logging
 logging.basicConfig(level=logging.DEBUG)
@@ -191,25 +197,141 @@ def delete_single_menu(menu_id):
 
 @app.route('/generate-dishes', methods=['POST', 'OPTIONS'])
 def generate_dishes():
-    # data = request 
-    print("type of data", type(request.get_json()))
-    return {
-        "success": True,
-        "dishes": [
-            {
-                "name": "Chicken Alfredo",
-                "description": "Creamy chicken Alfredo pasta",
-                "ingredients": ["chicken", "pasta", " Alfredo sauce"],
-                "recipe": [
-                    {
-                        "step": "Boil the pasta",
-                        "ingredients": ["pasta"]
-                    },
-                    
+    if request.method == 'OPTIONS':
+        return jsonify({"success": True})
+        
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                "success": False,
+                "message": "No data provided"
+            })
+            
+        generation_type = data.get('type')
+        message = data.get('message', '')
+        
+        if not generation_type:
+            return jsonify({
+                "success": False,
+                "message": "Generation type is required"
+            })
+            
+        if generation_type == 'inventory':
+            # Generate dishes based on current inventory
+            surplus_ingredients = get_surplus_ingredients()
+            prompt = f"""Create 2 creative dishes using these surplus ingredients: {surplus_ingredients}.
+            and recipe for creating this dish: {message}
+            
+            Guidelines:
+            - mandatory is to create a recipe for the dish
+            - Use short, catchy names (max 3-4 words)
+            - Use realistic market prices for ingredients
+            - Include all ingredients, even small amounts
+            - Cost should be between $10-30 per dish
+            - Profit margin should be 20-35%
+            - For each ingredient, specify exact quantity and unit (e.g., grams, cups, pieces)
+            
+            Format the response as JSON with this structure:
+            {{
+                "dishes": [
+                    {{
+                        "name": "string",
+                        "description": "string",
+                        "recipe": {{
+                            "steps": [
+                                "Step 1: ...",
+                                "Step 2: ...",
+                                "Step 3: ..."
+                            ]
+                        }},
+                        "ingredients": [
+                            {{
+                                "name": "string",
+                                "quantity": number,
+                                "unit": "string"
+                            }}
+                        ],
+                        "cost": number,
+                        "profit_margin": number,
+                        "special_occasion": boolean
+                    }}
                 ]
-            }]
-    }
-    # return generate_dishes_func(data) 
+            }}"""
+            
+        elif generation_type == 'custom':
+            # Generate dishes based on custom ingredients
+            ingredients = data.get('ingredients', [])
+            
+            if not ingredients:
+                return jsonify({
+                    "success": False,
+                    "message": "No ingredients provided"
+                })
+            
+            prompt = f"""Create 2 creative dishes using these ingredients: {ingredients} and recipe for creating this dish: {message}
+            
+            Guidelines:
+            - mandatory is to create a recipe for the dish
+            - Use short, catchy names (max 3-4 words)
+            - Use realistic market prices for ingredients
+            - Include all ingredients, even small amounts
+            - Cost should be between $10-30 per dish
+            - Profit margin should be 20-35%
+            
+            Format the response as JSON with this structure:
+            {{
+                "dishes": [
+                    {{
+                        "name": "string",
+                        "description": "string",
+                        "recipe": {{
+                            "steps": [
+                                "Step 1: ...",
+                                "Step 2: ...",
+                                "Step 3: ..."
+                            ]
+                        }},
+                        "ingredients": [
+                            {{
+                                "name": "string",
+                                "quantity": number,
+                                "unit": "string"
+                            }}
+                        ],
+                        "cost": number,
+                        "profit_margin": number,
+                        "special_occasion": boolean
+                    }}
+                ]
+            }}"""
+        else:
+            return jsonify({
+                "success": False,
+                "message": "Invalid generation type"
+            })
+
+        # Generate response from Gemini API
+        response = generate_ai_response(prompt)
+        
+        if not response or "dishes" not in response:
+            return jsonify({
+                "success": False,
+                "message": "Failed to generate dishes"
+            })
+
+        return jsonify({
+            "success": True,
+            "dishes": response["dishes"]
+        })
+
+    except Exception as e:
+        print(f"Error in generate_dishes: {str(e)}")
+        return jsonify({
+            "success": False,
+            "message": str(e)
+        })
+
 # Register blueprints
 app.register_blueprint(ai_dish_bp)
 
