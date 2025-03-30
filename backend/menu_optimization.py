@@ -112,7 +112,7 @@ def optimize_menu():
             "cost_optimizations": cost_optimizations.get("cost_optimizations", []),
             "new_dishes": new_dishes.get("new_dishes", [])
         }
-
+        
         return result
 
     except Exception as e:

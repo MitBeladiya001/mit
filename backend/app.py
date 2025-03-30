@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_from_directory
 import pandas as pd
 import datetime
 from flask_cors import CORS
@@ -7,6 +7,11 @@ import os
 from werkzeug.utils import secure_filename
 from menu_optimization import optimize_menu
 from ingredients import analyze_image_endpoint
+from dishes import add_dish_endpoint, get_all_dishes
+from menu import create_menu, get_all_menus, get_menu, update_menu, delete_menu
+import json
+from pymongo import MongoClient
+import uuid
 
 app = Flask(__name__)
 # Configure CORS to allow all origins
@@ -22,7 +27,7 @@ if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
 # Allowed file extensions
-ALLOWED_EXTENSIONS = {'xlsx', 'xls'}
+ALLOWED_EXTENSIONS = {'xlsx', 'xls', 'jpg', 'jpeg', 'png'}
 
 # High risk ingredients for demonstration
 HIGH_RISK_INGREDIENTS = {
@@ -30,8 +35,76 @@ HIGH_RISK_INGREDIENTS = {
     "shellfish", "nuts", "peanuts", "soy", "wheat"
 }
 
+# MongoDB configuration
+try:
+    client = MongoClient(
+        os.getenv("MONGODB_URI"),
+        serverSelectionTimeoutMS=5000
+    )
+    # Test the connection
+    client.server_info()
+    db = client.kitchen_db
+    dishes_collection = db.dishes
+except Exception as e:
+    logging.error(f"Failed to connect to MongoDB: {str(e)}")
+    # Fallback to local MongoDB if connection fails
+    client = MongoClient(os.getenv("MONGODB_URI"))
+    db = client.kitchen_db
+    dishes_collection = db.dishes
+
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+# Route to serve uploaded files
+@app.route('/uploads/<filename>')
+def uploaded_file(filename):
+    return send_from_directory(UPLOAD_FOLDER, filename)
+
+@app.route("/add-dish", methods=["POST"])
+def add_dish():
+    return add_dish_endpoint()
+
+@app.route("/get-dishes", methods=["GET"])
+def get_dishes():
+    try:
+        # Fetch all dishes from MongoDB
+        dishes = list(dishes_collection.find())
+        
+        # Convert ObjectId to string and format timestamps
+        for dish in dishes:
+            dish["_id"] = str(dish["_id"])
+            dish["created_at"] = dish["created_at"].isoformat() if "created_at" in dish else None
+            dish["updated_at"] = dish["updated_at"].isoformat() if "updated_at" in dish else None
+            
+            # Ensure ingredients have the correct structure
+            if "ingredients" in dish:
+                for ingredient in dish["ingredients"]:
+                    if isinstance(ingredient, str):
+                        # Convert old format to new format
+                        ingredient = {
+                            "name": ingredient,
+                            "quantity": 1,
+                            "unit": "pcs"
+                        }
+                    elif isinstance(ingredient, dict):
+                        # Ensure all required fields exist
+                        if "quantity" not in ingredient:
+                            ingredient["quantity"] = 1
+                        if "unit" not in ingredient:
+                            ingredient["unit"] = "pcs"
+        
+        return jsonify({
+            "success": True,
+            "dishes": dishes
+        })
+
+    except Exception as e:
+        logging.error(f"Error fetching dishes: {str(e)}")
+        return jsonify({
+            "success": False,
+            "message": "Failed to fetch dishes",
+            "error": str(e)
+        }), 500
 
 @app.route("/upload", methods=["POST", "OPTIONS"])
 def upload_file():
@@ -94,6 +167,26 @@ def optimize_menu_endpoint():
 @app.route('/analyze-image', methods=['POST'])
 def analyze_image():
     return analyze_image_endpoint()
+
+@app.route("/menus", methods=["GET"])
+def get_menus():
+    return get_all_menus(db)
+
+@app.route("/menus", methods=["POST"])
+def add_menu():
+    return create_menu(db)
+
+@app.route("/menus/<menu_id>", methods=["GET"])
+def get_single_menu(menu_id):
+    return get_menu(db, menu_id)
+
+@app.route("/menus/<menu_id>", methods=["PUT"])
+def update_single_menu(menu_id):
+    return update_menu(db, menu_id)
+
+@app.route("/menus/<menu_id>", methods=["DELETE"])
+def delete_single_menu(menu_id):
+    return delete_menu(db, menu_id)
 
 if __name__ == "__main__":
     app.run(debug=True, port=5001, host='0.0.0.0')
