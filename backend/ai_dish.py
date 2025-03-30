@@ -1,7 +1,7 @@
-from flask import Blueprint, request, jsonify
-import google.generativeai as genai
 import os
 from dotenv import load_dotenv
+import google.generativeai as genai
+from flask import Blueprint, jsonify
 import json
 
 # Load environment variables
@@ -23,11 +23,11 @@ ai_dish_bp = Blueprint('ai_dish', __name__)
 def get_surplus_ingredients():
     """Get current surplus ingredients from inventory"""
     return [
-        {"name": "Chicken Breast", "quantity": 15, "expiry_date": "2024-03-25"},
-        {"name": "Fresh Basil", "quantity": 8, "expiry_date": "2024-03-24"},
-        {"name": "Mozzarella", "quantity": 12, "expiry_date": "2024-03-26"},
-        {"name": "Tomatoes", "quantity": 20, "expiry_date": "2024-03-23"},
-        {"name": "Pasta", "quantity": 10, "expiry_date": "2024-04-01"},
+        {"name": "Chicken Breast", "quantity": 15, "expiry_date": "2025-03-31"},  # Updated expiry
+        {"name": "Fresh Basil", "quantity": 8, "expiry_date": "2025-03-30"},    # Updated expiry
+        {"name": "Mozzarella", "quantity": 12, "expiry_date": "2025-04-01"},   # Updated expiry
+        {"name": "Tomatoes", "quantity": 20, "expiry_date": "2025-03-29"},     # Updated expiry
+        {"name": "Pasta", "quantity": 10, "expiry_date": "2025-04-06"},       # Updated expiry
     ]
 
 def generate_ai_response(prompt):
@@ -52,53 +52,97 @@ def generate_ai_response(prompt):
         print(f"Error in generate_ai_response: {str(e)}")
         return {"dishes": []}
 
-@ai_dish_bp.route('/generate-dishes', methods=['POST'])
-def generate_dishes():
+# @ai_dish_bp.route('/generate-dishes', methods=['POST'])
+def generate_dishes_func(data):
     try:
-        data = request.get_json()
+        print("In generate dishes func")
+        # data = request.get_json()
         generation_type = data.get('type')
         message = data.get('message', '')
-        
+
         if generation_type == 'inventory':
             # Generate dishes based on current inventory
             surplus_ingredients = get_surplus_ingredients()
             prompt = f"""Create 2 creative dishes using these surplus ingredients: {surplus_ingredients}.
-            Additional requirements: {message}
+            and recipe for creating this dish: {message}
+
+            Guidelines:
+            - mandatory is to create a recipe for the with given ingredients
+            - Use short, catchy names (max 3-4 words)
+            - Use realistic market prices for ingredients
+            - Include all ingredients, even small amounts
+            - Cost should be between $10-30 per dish
+            - Profit margin should be 20-35%
+            - For each ingredient, specify exact quantity and unit (e.g., grams, cups, pieces)
+
             Format the response as JSON with this structure:
             {{
                 "dishes": [
                     {{
                         "name": "string",
                         "description": "string",
-                        "ingredients": ["string"],
+                        "recipe": {{
+                            "steps": [
+                                "Step 1: ...",
+                                "Step 2: ...",
+                                "Step 3: ..."
+                            ]
+                        }},
+                        "ingredients": [
+                            {{
+                                "name": "string",
+                                "quantity": number,
+                                "unit": "string"
+                            }}
+                        ],
                         "cost": number,
                         "profit_margin": number,
                         "special_occasion": boolean
                     }}
                 ]
             }}"""
-            
+
         elif generation_type == 'custom':
             # Generate dishes based on custom ingredients
             ingredients = data.get('ingredients', [])
-            
+
             if not ingredients:
                 return jsonify({
                     "success": False,
                     "message": "No ingredients provided"
                 })
-            
-            prompt = f"""Create 2 creative dishes using these ingredients: {ingredients}.
-            Additional requirements: {message}
+
+            prompt = f"""Create 2 creative dishes using these ingredients: {ingredients} and recipe for creating this dish: {message}
+
+            Guidelines:
+            - mandatory is to create a recipe for the with given ingredients and message
+            - Use short, catchy names (max 3-4 words)
+            - Use realistic market prices for ingredients
+            - Include all ingredients, even small amounts
+            - Cost should be between $10-30 per dish
+            - Profit margin should be 20-35%
+
             Format the response as JSON with this structure:
             {{
                 "dishes": [
                     {{
                         "name": "string",
                         "description": "string",
-                        "ingredients": ["string"],
+                        "recipe": {{
+                            "steps": [
+                                "Step 1: ...",
+                                "Step 2: ...",
+                                "Step 3: ..."
+                            ]
+                        }},
+                        "ingredients": [
+                            {{
+                                "name": "string",
+                                "quantity": number,
+                                "unit": "string"
+                            }}
+                        ],
                         "cost": number,
-                        "recipe": "string",
                         "profit_margin": number,
                         "special_occasion": boolean
                     }}
@@ -112,12 +156,50 @@ def generate_dishes():
 
         # Generate response from Gemini API
         response = generate_ai_response(prompt)
-        
+        print(response)
         if not response or "dishes" not in response:
             return jsonify({
                 "success": False,
                 "message": "Failed to generate dishes"
             })
+
+        # Process each dish to ensure proper structure
+        for dish in response["dishes"]:
+            # Ensure recipe has proper structure
+            if "recipe" not in dish:
+                dish["recipe"] = {"steps": ["No recipe steps available."]}
+            elif isinstance(dish["recipe"], str):
+                # Convert string recipes to proper structure
+                dish["recipe"] = {"steps": [dish["recipe"]]}
+            elif not isinstance(dish["recipe"], dict):
+                dish["recipe"] = {"steps": ["No recipe steps available."]}
+
+            # Make sure steps exist in recipe
+            # print(dish["recipe"])
+            if "steps" not in dish["recipe"]:
+                dish["recipe"]["steps"] = ["No steps provided."]
+
+            # Handle ingredients
+            if "ingredients" not in dish:
+                dish["ingredients"] = []
+            elif isinstance(dish["ingredients"], list):
+                # Convert any string ingredients to proper structure
+                dish["ingredients"] = [
+                    {
+                        "name": ing if isinstance(ing, str) else ing.get("name", ""),
+                        "quantity": 1 if isinstance(ing, str) else ing.get("quantity", 1),
+                        "unit": "unit" if isinstance(ing, str) else ing.get("unit", "unit")
+                    }
+                    for ing in dish["ingredients"]
+                ]
+
+            # Ensure other fields exist
+            if "cost" not in dish:
+                dish["cost"] = 0
+            if "profit_margin" not in dish:
+                dish["profit_margin"] = 0
+            if "special_occasion" not in dish:
+                dish["special_occasion"] = False
 
         return jsonify({
             "success": True,
@@ -129,4 +211,12 @@ def generate_dishes():
         return jsonify({
             "success": False,
             "message": str(e)
-        }) 
+        })
+
+if __name__ == '__main__':
+    # Example usage (you would typically run this with a Flask server)
+    # Simulate a POST request with type 'inventory'
+    data = {"type": "inventory"}
+    # Call the function directly for demonstration
+    result = generate_dishes_func()
+    print(json.dumps(result, indent=4))

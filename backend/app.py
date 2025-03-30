@@ -12,7 +12,7 @@ from menu import create_menu, get_all_menus, get_menu, update_menu, delete_menu
 import json
 from pymongo import MongoClient
 import uuid
-from ai_dish import ai_dish_bp, generate_ai_response
+from ai_dish import ai_dish_bp, generate_dishes_func
 
 app = Flask(__name__)
 # Configure CORS to allow all origins
@@ -37,21 +37,21 @@ HIGH_RISK_INGREDIENTS = {
 }
 
 # MongoDB configuration
-try:
-    client = MongoClient(
-        os.getenv("MONGODB_URI"),
-        serverSelectionTimeoutMS=5000
-    )
-    # Test the connection
-    client.server_info()
-    db = client.kitchen_db
-    dishes_collection = db.dishes
-except Exception as e:
-    logging.error(f"Failed to connect to MongoDB: {str(e)}")
-    # Fallback to local MongoDB if connection fails
-    client = MongoClient(os.getenv("MONGODB_URI"))
-    db = client.kitchen_db
-    dishes_collection = db.dishes
+# try:
+#     client = MongoClient(
+#         os.getenv("MONGODB_URI"),
+#         serverSelectionTimeoutMS=5000
+#     )
+#     # Test the connection
+#     client.server_info()
+#     db = client.kitchen_db
+#     dishes_collection = db.dishes
+# except Exception as e:
+#     logging.error(f"Failed to connect to MongoDB: {str(e)}")
+#     # Fallback to local MongoDB if connection fails
+#     client = MongoClient(os.getenv("MONGODB_URI"))
+#     db = client.kitchen_db
+#     dishes_collection = db.dishes
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
@@ -189,81 +189,27 @@ def update_single_menu(menu_id):
 def delete_single_menu(menu_id):
     return delete_menu(db, menu_id)
 
-@app.route('/generate-dishes', methods=['POST'])
+@app.route('/generate-dishes', methods=['POST', 'OPTIONS'])
 def generate_dishes():
-    try:
-        data = request.get_json()
-        generation_type = data.get('type')
-        
-        if generation_type == 'inventory':
-            # Use existing menu optimization logic
-            result = optimize_menu()
-            return jsonify({
-                "success": True,
-                "dishes": result.get("new_dishes", [])
-            })
-            
-        elif generation_type == 'custom':
-            # Handle custom ingredients
-            ingredients = data.get('ingredients', [])
-            message = data.get('message', '')
-            
-            if not ingredients:
-                return jsonify({
-                    "success": False,
-                    "message": "No ingredients provided"
-                })
-            
-            # Format ingredients for the AI prompt
-            ingredients_text = "\n".join([f"- {ing['name']}: {ing['quantity']}" for ing in ingredients])
-            
-            # Generate AI response
-            prompt = f"""Create 2 creative dishes using these ingredients:
-            {ingredients_text}
-            
-            Additional requirements: {message}
-            
-            Format the response as JSON with this structure:
-            {{
-                "dishes": [
-                    {{
-                        "name": "string",
-                        "description": "string",
-                        "ingredients": ["string"],
-                        "cost": number,
-                        "profit_margin": number,
-                        "special_occasion": boolean
-                    }}
+    # data = request 
+    print("type of data", type(request.get_json()))
+    return {
+        "success": True,
+        "dishes": [
+            {
+                "name": "Chicken Alfredo",
+                "description": "Creamy chicken Alfredo pasta",
+                "ingredients": ["chicken", "pasta", " Alfredo sauce"],
+                "recipe": [
+                    {
+                        "step": "Boil the pasta",
+                        "ingredients": ["pasta"]
+                    },
+                    
                 ]
-            }}"""
-            
-            # Use the imported generate_ai_response function
-            response = generate_ai_response(prompt)
-            
-            if not response:
-                return jsonify({
-                    "success": False,
-                    "message": "Failed to generate dishes"
-                })
-            
-            return jsonify({
-                "success": True,
-                "dishes": response.get("dishes", [])
-            })
-            
-        else:
-            return jsonify({
-                "success": False,
-                "message": "Invalid generation type"
-            })
-            
-    except Exception as e:
-        print(f"Error in generate_dishes: {str(e)}")
-        return jsonify({
-            "success": False,
-            "message": str(e)
-        })
-
+            }]
+    }
+    # return generate_dishes_func(data) 
 # Register blueprints
 app.register_blueprint(ai_dish_bp)
 
