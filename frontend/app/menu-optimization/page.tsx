@@ -1,7 +1,6 @@
 "use client";
-import { useState, useCallback } from "react";
+import { useState } from "react";
 import axios from "axios";
-import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
@@ -19,16 +18,35 @@ import {
 } from "lucide-react";
 import { Navbar } from "@/components/navbar";
 import { DishPage } from "./DishPage";
+import { Menu } from "./components/Menu";
+import { MenuList } from "./components/MenuList";
+import { DishList } from "./components/DishList";
 
-type MenuItem = {
+interface Ingredient {
+  name: string;
+  quantity: number;
+  unit: string;
+}
+
+interface Dish {
+  _id?: string;
+  name: string;
+  photo: string;
+  price: number;
+  ingredients: Ingredient[];
+  created_at?: string;
+  updated_at?: string;
+}
+
+interface MenuItem {
   name: string;
   ingredients: string[];
   cost: number;
   profit_margin: number;
   special_occasion: boolean;
-};
+}
 
-type OptimizationResult = {
+interface OptimizationResult {
   daily_specials: MenuItem[];
   cost_optimizations: {
     item: string;
@@ -37,13 +55,6 @@ type OptimizationResult = {
     potential_savings: number;
   }[];
   new_dishes: MenuItem[];
-};
-
-interface Dish {
-  name: string;
-  photo: string;
-  price: number;
-  ingredients: string[];
 }
 
 export default function MenuOptimizationPage() {
@@ -51,34 +62,8 @@ export default function MenuOptimizationPage() {
   const [error, setError] = useState("");
   const [activePage, setActivePage] = useState("menu-optimization");
   const [results, setResults] = useState<OptimizationResult | null>(null);
-  const [dishes, setDishes] = useState<Dish[]>([]);
+  const [selectedDishes, setSelectedDishes] = useState<Dish[]>([]);
 
-  const handleAddDish = (dish: Dish) => {
-    setDishes([...dishes, dish]);
-  };
-
-  const handleOptimize = useCallback(async () => {
-    setLoading(true);
-    setError("");
-
-    try {
-      const response = await axios.post("http://localhost:5001/optimize-menu", {
-        dishes: dishes,
-      });
-      setResults(response.data);
-    } catch (error: any) {
-      setError(
-        error.response?.data?.message ||
-          "Failed to optimize menu. Please try again."
-      );
-      console.error(
-        "Error optimizing menu:",
-        error.response?.data || error.message
-      );
-    } finally {
-      setLoading(false);
-    }
-  }, [dishes]);
 
   return (
     <div className="min-h-screen bg-black text-gray-200">
@@ -94,30 +79,6 @@ export default function MenuOptimizationPage() {
           </p>
         </div>
 
-        {/* Dish Creation and Current Menu */}
-        <DishPage onAddDish={handleAddDish} dishes={dishes} />
-
-        {/* Optimize Button */}
-        <div className="flex justify-center my-8">
-          <Button
-            onClick={handleOptimize}
-            disabled={loading || dishes.length === 0}
-            className="bg-purple-600 hover:bg-purple-700 min-w-[200px]"
-          >
-            {loading ? (
-              <div className="flex items-center space-x-2">
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>Optimizing...</span>
-              </div>
-            ) : (
-              <div className="flex items-center space-x-2">
-                <Sparkles className="w-4 h-4" />
-                <span>Optimize Menu</span>
-              </div>
-            )}
-          </Button>
-        </div>
-
         {error && (
           <div className="text-red-400 text-sm flex items-center space-x-2 bg-red-900/20 p-3 rounded-md mb-8">
             <AlertTriangle className="w-4 h-4" />
@@ -125,8 +86,12 @@ export default function MenuOptimizationPage() {
           </div>
         )}
 
+        {/* Dish Management */}
+        <DishList />
+        <MenuList />
+        {/* Optimization Results */}
         {results && (
-          <div className="space-y-8">
+          <div className="space-y-8 mt-8">
             {/* Daily Specials */}
             <Card className="bg-gray-900 border-gray-800">
               <CardHeader>
