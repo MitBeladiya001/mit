@@ -8,6 +8,7 @@ import {
   Settings,
   Menu,
   ChefHat,
+  Sparkles,
 } from "lucide-react";
 
 interface NavbarProps {
@@ -63,21 +64,21 @@ export function Navbar({ activePage, onPageChange }: NavbarProps) {
               <ChefHat className="h-5 w-5" />
               <span>Menu Optimize</span>
             </Link>
+            <Link
+              href="/ai-dish"
+              className={`flex items-center space-x-2 text-sm font-medium transition-colors ${
+                activePage === "ai-dishes"
+                  ? "text-purple-400"
+                  : "text-gray-400 hover:text-gray-300"
+              }`}
+              onClick={() => onPageChange("ai-dishes")}
+            >
+              <Sparkles className="h-5 w-5" />
+              <span>AI Dish</span>
+            </Link>
           </div>
 
           <div className="hidden md:flex items-center space-x-6">
-            <Link
-              href="/reports"
-              className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
-                activePage === "reports"
-                  ? "bg-purple-900/40 text-white"
-                  : "text-gray-400 hover:text-white hover:bg-gray-800"
-              }`}
-              onClick={() => onPageChange("reports")}
-            >
-              <PieChart className="h-4 w-4" />
-              <span>Reports</span>
-            </Link>
             <Link
               href="/settings"
               className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
@@ -151,6 +152,21 @@ export function Navbar({ activePage, onPageChange }: NavbarProps) {
             >
               <ChefHat className="h-4 w-4" />
               <span>Menu Optimize</span>
+            </Link>
+            <Link
+              href="/ai-dishes"
+              className={`flex items-center space-x-3 px-3 py-2 rounded-md font-medium ${
+                activePage === "ai-dishes"
+                  ? "text-white bg-purple-900/40"
+                  : "text-gray-300 hover:bg-gray-800 hover:text-white"
+              }`}
+              onClick={() => {
+                onPageChange("ai-dishes");
+                setMobileMenuOpen(false);
+              }}
+            >
+              <Sparkles className="h-4 w-4" />
+              <span>AI Dishes</span>
             </Link>
             <Link
               href="/reports"
